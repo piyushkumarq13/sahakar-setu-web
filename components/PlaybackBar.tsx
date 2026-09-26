@@ -10,9 +10,11 @@ interface Props {
   lang: string;
   audioUrl?: string | null;
   onPlaybackChange?: (playing: boolean) => void;
+  /** Voice-originated turns start speaking as soon as the answer lands. */
+  autoPlay?: boolean;
 }
 
-export function PlaybackBar({ text, lang, audioUrl, onPlaybackChange }: Props) {
+export function PlaybackBar({ text, lang, audioUrl, onPlaybackChange, autoPlay }: Props) {
   const { t } = useI18n();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   /** Object URL we created for a fetched TTS blob; revoked on teardown. */
@@ -61,7 +63,16 @@ export function PlaybackBar({ text, lang, audioUrl, onPlaybackChange }: Props) {
     onPlaybackChange?.(playing);
   }, [playing, onPlaybackChange]);
 
-  async function start() {
+  // Voice-originated turns speak automatically once the answer is added.
+  // Runs mount-only: each answer owns its own PlaybackBar, and the audioUrl
+  // is already set at message creation on the voice path.
+  const autoPlayRef = useRef(autoPlay);
+  useEffect(() => {
+    if (autoPlayRef.current && audioUrl) void start(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function start(isAuto = false) {
     let url = audioUrl;
     if (!url) {
       setLoading(true);
@@ -98,8 +109,22 @@ export function PlaybackBar({ text, lang, audioUrl, onPlaybackChange }: Props) {
       setPlaying(false);
       setCurrent(0);
     };
-    audio.onerror = () => setFailed(true);
-    audio.play().catch(() => setFailed(true));
+    audio.onerror = () => {
+      if (isAuto) {
+        teardown();
+      } else {
+        setFailed(true);
+      }
+    };
+    audio.play().catch(() => {
+      if (isAuto) {
+        // Autoplay was blocked (no recent user gesture): fall back to the
+        // manual play button instead of showing an error.
+        teardown();
+      } else {
+        setFailed(true);
+      }
+    });
   }
 
   function toggle() {

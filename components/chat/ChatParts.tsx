@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n";
+import { MarkdownText } from "../Markdown";
 import { PlaybackBar } from "../PlaybackBar";
 import { IconChat, IconChevronDown } from "../icons";
 
@@ -14,6 +15,8 @@ export interface ChatMessage {
   citations?: string[];
   time: string;
   audioUrl?: string | null;
+  /** Voice-originated turns answer aloud automatically once ready. */
+  autoPlay?: boolean;
 }
 
 function isDecline(text: string): boolean {
@@ -43,9 +46,7 @@ export function AnswerBubble({
   return (
     <div className="flex justify-start">
       <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-ink/10 bg-white px-4 py-3 shadow-sm md:max-w-[85%]">
-        <p className="whitespace-pre-wrap break-words text-base font-medium leading-relaxed text-ink md:text-[17px]">
-          {msg.text}
-        </p>
+        <MarkdownText text={msg.text} />
 
         {boundary && (
           <div className="mt-3">
@@ -90,7 +91,7 @@ export function AnswerBubble({
           </div>
         )}
 
-        <PlaybackBar text={msg.text} lang={lang} audioUrl={msg.audioUrl} />
+        <PlaybackBar text={msg.text} lang={lang} audioUrl={msg.audioUrl} autoPlay={msg.autoPlay} />
 
         <p className="mt-1.5 text-xs font-bold text-ink/45">{msg.time}</p>
       </div>
@@ -147,7 +148,8 @@ export function newMessage(
   role: ChatMessage["role"],
   text: string,
   citations?: string[],
-  audioUrl?: string | null
+  audioUrl?: string | null,
+  autoPlay?: boolean
 ): ChatMessage {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -156,5 +158,6 @@ export function newMessage(
     citations,
     time: formatClock(new Date()),
     audioUrl,
+    autoPlay,
   };
 }

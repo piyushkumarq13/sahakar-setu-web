@@ -111,6 +111,86 @@ body {
   .skeleton {
     @apply animate-pulse rounded-xl bg-ink/10;
   }
+
+  /* Markdown-rendered server text (chat answers, OCR output, summaries).
+     Tailwind preflight strips list/heading defaults, so they are restored
+     here at a size that matches the surrounding chat typography. */
+  .markdown-body {
+    @apply text-base leading-relaxed text-ink;
+  }
+  .markdown-body > :first-child {
+    @apply mt-0;
+  }
+  .markdown-body > :last-child {
+    @apply mb-0;
+  }
+  .markdown-body p {
+    @apply my-2;
+  }
+  .markdown-body h1 {
+    @apply mb-2 mt-4 text-2xl font-extrabold text-ink;
+  }
+  .markdown-body h2 {
+    @apply mb-2 mt-4 text-xl font-extrabold text-ink;
+  }
+  .markdown-body h3 {
+    @apply mb-1.5 mt-3 text-lg font-extrabold text-ink;
+  }
+  .markdown-body h4 {
+    @apply mb-1.5 mt-3 text-base font-extrabold text-ink;
+  }
+  .markdown-body ul {
+    @apply my-2 list-disc space-y-1 ps-6;
+  }
+  .markdown-body ol {
+    @apply my-2 list-decimal space-y-1 ps-6;
+  }
+  .markdown-body li {
+    @apply leading-relaxed;
+  }
+  .markdown-body li > ul,
+  .markdown-body li > ol {
+    @apply my-1;
+  }
+  .markdown-body strong {
+    @apply font-extrabold text-ink;
+  }
+  .markdown-body em {
+    @apply italic;
+  }
+  .markdown-body a {
+    @apply font-bold text-primary underline underline-offset-2 hover:text-primary-600;
+  }
+  .markdown-body blockquote {
+    @apply my-2 border-s-4 border-primary/30 bg-cream px-4 py-2 font-medium text-ink/80;
+  }
+  .markdown-body code {
+    @apply rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[0.85em] font-bold text-ink;
+  }
+  .markdown-body pre {
+    @apply my-2 overflow-x-auto rounded-xl bg-ink p-4 text-sm;
+  }
+  .markdown-body pre code {
+    @apply bg-transparent p-0 text-white;
+  }
+  .markdown-body hr {
+    @apply my-3 border-ink/15;
+  }
+  .markdown-body table {
+    @apply my-2 w-full border-collapse text-sm;
+  }
+  .markdown-body th {
+    @apply border border-ink/20 bg-cream px-3 py-2 text-start font-extrabold text-ink;
+  }
+  .markdown-body td {
+    @apply border border-ink/20 px-3 py-2 align-top;
+  }
+  .markdown-body del {
+    @apply text-ink/50;
+  }
+  .markdown-body input[type="checkbox"] {
+    @apply me-1.5 accent-[#2E8B57];
+  }
 }
 
 /* Progress bar animation for playback */

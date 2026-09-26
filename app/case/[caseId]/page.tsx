@@ -18,6 +18,7 @@ import {
   type Verdict,
 } from "@/lib/api";
 import { isSupportedUpload, isTooLarge, toUploadableFile } from "@/lib/pdf";
+import { MarkdownText } from "@/components/Markdown";
 import { useToast } from "@/components/Toast";
 import { LoadingBlock, Skeleton, StrengthMeter, StatusChip } from "@/components/ui";
 import {
@@ -321,7 +322,9 @@ export default function CaseDashboardPage() {
                   <IconCheck className="me-1 inline text-primary-700" aria-hidden="true" />
                   {t("cs.uploadResult")} ({uploadResult.verdict_update?.score}/100)
                 </p>
-                <p className="mt-1 text-sm font-bold text-ink/70">{uploadResult.summary}</p>
+                <p className="mt-1 text-sm font-bold text-ink/70">
+                  <MarkdownText text={uploadResult.summary} />
+                </p>
                 {uploadResult.extracted_facts?.length > 0 && (
                   <p className="mt-2 text-xs font-extrabold uppercase text-ink/50">
                     {t("cs.extractedFacts")}
@@ -365,11 +368,16 @@ export default function CaseDashboardPage() {
             {ocrDoc && (
               <div className="mt-3 rounded-xl border border-ink/10 bg-cream p-3">
                 <p className="text-xs font-extrabold uppercase text-ink/50">{t("cs.ocr")}</p>
-                <p className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-sm font-medium text-ink">
-                  {ocrDoc.ocr_text}
-                </p>
+                <div className="mt-1 max-h-40 overflow-auto">
+                  <MarkdownText
+                    text={ocrDoc.ocr_text}
+                    className="text-sm font-medium"
+                  />
+                </div>
                 <p className="mt-2 text-xs font-extrabold uppercase text-ink/50">{t("cs.summary")}</p>
-                <p className="mt-1 text-sm font-bold text-ink/70">{ocrDoc.analysis_summary}</p>
+                <p className="mt-1 text-sm font-bold text-ink/70">
+                  <MarkdownText text={ocrDoc.analysis_summary} />
+                </p>
               </div>
             )}
           </div>

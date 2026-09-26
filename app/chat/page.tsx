@@ -80,6 +80,13 @@ function ChatInner() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastFailedRef = useRef<string>("");
   const busyRef = useRef(false);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  // Touch devices get newline-on-Enter (software keyboard); desktops send.
+  const [isTouch] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(pointer: coarse)").matches
+  );
 
   useEffect(() => {
     const stored = getCaseId();
@@ -105,6 +112,14 @@ function ChatInner() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, partial, status]);
+
+  // The composer grows with the draft up to a cap, then scrolls internally.
+  useEffect(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [input]);
 
   const langName = LANGUAGES.find((l) => l.code === lang)?.name ?? "हिन्दी";
 
@@ -261,15 +276,15 @@ function ChatInner() {
           ]);
           return;
         }
-        setMessages((prev) => [...prev, newMessage("user", res.transcript)]);
         const audioUrl = res.audio ? base64ToBlobUrl(res.audio, "audio/mpeg") : null;
-        addAssistant(res.answer, res.citations);
-        // attach audio to the message just added
-        setMessages((prev) =>
-          prev.map((m, i) =>
-            i === prev.length - 1 ? { ...m, audioUrl } : m
-          )
-        );
+        // The user spoke, so the answer speaks too: the message carries its
+        // TTS audio and auto-plays the moment it lands.
+        setMessages((prev) => [
+          ...prev,
+          newMessage("user", res.transcript),
+          newMessage("assistant", res.answer, res.citations, audioUrl, true),
+        ]);
+        if (res.citations?.length) setCitations(res.citations);
       } catch (err) {
         if (err instanceof RateLimitError) {
           setCooldownLeft(60);
@@ -281,7 +296,7 @@ function ChatInner() {
         setStatus("idle");
       }
     },
-    [addAssistant, lang, rememberIds, t, toast]
+    [lang, rememberIds, t, toast]
   );
 
   const toggleVoice = useCallback(async () => {
@@ -490,11 +505,25 @@ function ChatInner() {
               >
                 {recording ? <IconStop /> : <IconMic />}
               </button>
-              <input
+              <textarea
+                ref={taRef}
+                rows={1}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  // Desktop: Enter sends, Shift+Enter inserts a newline. On
+                  // touch devices Enter always inserts a newline (software
+                  // keyboards own that key). Never send while an IME
+                  // composition (e.g. Hindi transliteration) is confirming.
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    if (!isTouch) {
+                      e.preventDefault();
+                      sendText(input);
+                    }
+                  }
+                }}
                 placeholder={t("chat.placeholder")}
-                className="input min-h-[52px] min-w-0 flex-1"
+                className="input max-h-40 min-h-[52px] min-w-0 flex-1 resize-none overflow-y-auto py-3"
                 disabled={busy}
                 aria-label={t("chat.placeholder")}
               />
