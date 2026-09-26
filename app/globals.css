@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #2e8b57;
+  --color-primary-600: #26774a;
+  --color-primary-700: #1f6140;
+  --color-logo-blue: #007bff;
+  --color-navy: #0d2a5c;
+  --color-accent: #ffa500;
+  --color-accent-600: #e89500;
+  --color-cream: #fff8f0;
+  --color-success: #32cd32;
+  --color-ink: #212121;
+  --color-saffron: #ff9933;
+  --font-sans: "Mukta", "Noto Sans Devanagari", "Nirmala UI", ui-sans-serif,
+    system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* One shared page width for header, content and footer so every page keeps
+   identical left/right edges on any viewport. Fluid padding scales with the
+   screen instead of jumping between two fixed breakpoints. */
+:root {
+  --page-max: 1240px;
+  --page-pad: clamp(1rem, 3vw, 2rem);
+}
+@media (min-width: 1536px) {
+  :root {
+    --page-max: 1360px;
+  }
+}
+
+[dir="rtl"] body {
+  direction: rtl;
+}
+
+@utility btn {
+  @apply inline-flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-xl px-6 py-3 text-lg font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@utility chip {
+  @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold;
+}
+
+/* Keeps a long nav row from wrapping/overflowing: it scrolls instead. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  .page-row {
+    @apply mx-auto w-full;
+    max-width: var(--page-max);
+    padding-inline: var(--page-pad);
+  }
+  .container-page {
+    @apply mx-auto w-full py-6 sm:py-8 lg:py-10;
+    max-width: var(--page-max);
+    padding-inline: var(--page-pad);
+  }
+  .card {
+    @apply rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(33,33,33,0.08)] sm:p-5;
+  }
+  .btn-primary {
+    @apply btn bg-primary text-white hover:bg-primary-600;
+  }
+  .btn-accent {
+    @apply btn bg-accent text-ink hover:bg-accent-600;
+  }
+  .btn-outline {
+    @apply btn border-2 border-primary bg-white text-primary hover:bg-primary/5;
+  }
+  .btn-ghost {
+    @apply btn border-2 border-ink/15 bg-white text-ink hover:bg-ink/5;
+  }
+  .input {
+    @apply w-full rounded-xl border-2 border-ink/15 bg-white px-4 py-3 text-base text-ink outline-none transition-colors focus:border-logo-blue;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-bold text-ink/70;
+  }
+  .chip-green {
+    @apply chip bg-primary/10 text-primary-700;
+  }
+  .chip-orange {
+    @apply chip bg-accent/15 text-accent-600;
+  }
+  .chip-blue {
+    @apply chip bg-logo-blue/10 text-logo-blue;
+  }
+  .chip-success {
+    @apply chip bg-success/20 text-ink;
+  }
+  .chip-gray {
+    @apply chip bg-ink/10 text-ink/70;
+  }
+  .chip-red {
+    @apply chip bg-red-100 text-red-700;
+  }
+  .section-title {
+    @apply text-2xl font-extrabold text-ink md:text-3xl;
+  }
+  .skeleton {
+    @apply animate-pulse rounded-xl bg-ink/10;
+  }
+}
+
+/* Progress bar animation for playback */
+@keyframes play-progress {
+  from {
+    width: 0%;
+  }
+}
