@@ -45,6 +45,7 @@ const hi: Dict = {
   "nav.calculators": "कैलकुलेटर",
   "nav.lessons": "साक्षरता",
   "nav.help": "मदद",
+  "nav.menu": "मेनू",
   "nav.profile": "प्रोफ़ाइल",
 
   "footer.ministry": "सहकारिता मंत्रालय, भारत सरकार",
@@ -442,6 +443,7 @@ const en: Dict = {
   "nav.calculators": "Calculators",
   "nav.lessons": "Lessons",
   "nav.help": "Help",
+  "nav.menu": "Menu",
   "nav.profile": "Profile",
 
   "footer.ministry": "Ministry of Cooperation, Government of India",

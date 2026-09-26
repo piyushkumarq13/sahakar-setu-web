@@ -5,17 +5,17 @@ import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
 import {
   IconCalculator,
+  IconChat,
   IconGrid,
-  IconHelp,
   IconHome,
   IconUser,
 } from "./icons";
 
 const TABS = [
   { href: "/", key: "nav.home", Icon: IconHome },
+  { href: "/chat", key: "nav.chat", Icon: IconChat },
   { href: "/schemes", key: "nav.schemes", Icon: IconGrid },
   { href: "/calculators", key: "nav.calculators", Icon: IconCalculator },
-  { href: "/help", key: "nav.help", Icon: IconHelp },
   { href: "/profile", key: "nav.profile", Icon: IconUser },
 ];
 

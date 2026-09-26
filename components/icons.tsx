@@ -241,3 +241,11 @@ export const IconClose = (p: P) => (
     <path d="m6 6 12 12" />
   </Svg>
 );
+
+export const IconMenu = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 6h16" />
+    <path d="M4 12h16" />
+    <path d="M4 18h16" />
+  </Svg>
+);
