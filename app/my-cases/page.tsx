@@ -483,7 +483,7 @@ export default function MyCasesPage() {
                         </Link>
                       )}
                       <Link
-                        href="/track"
+                        href={`/track?id=${encodeURIComponent(c.trackingId)}`}
                         className="btn-outline min-h-[44px] px-4 py-2 text-sm"
                       >
                         {t("mc.track")}

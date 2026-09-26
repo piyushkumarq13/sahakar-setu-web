@@ -13,10 +13,12 @@ const LINKS = [
   { href: "/chat", key: "nav.chat" },
   { href: "/grievance", key: "nav.grievance" },
   { href: "/track", key: "nav.track" },
+  { href: "/my-cases", key: "nav.myCases" },
   { href: "/schemes", key: "nav.schemes" },
   { href: "/calculators", key: "nav.calculators" },
   { href: "/lessons", key: "nav.lessons" },
   { href: "/help", key: "nav.help" },
+  { href: "/profile", key: "nav.profile" },
 ];
 
 export function Navbar() {

@@ -470,6 +470,7 @@ const hi: Dict = {
   "mc.results": "{shown} में से {total} दिखाए गए",
   "mc.track": "स्थिति देखें",
   "mc.viewAll": "सभी देखें",
+  "nav.myCases": "मेरे मामले",
 };
 
 const en: Dict = {
@@ -912,6 +913,7 @@ const en: Dict = {
   "mc.results": "{shown} of {total} shown",
   "mc.track": "Track",
   "mc.viewAll": "View all",
+  "nav.myCases": "My cases",
 };
 
 function core(overrides: Dict): Dict {

@@ -86,7 +86,10 @@ export default function ProfilePage() {
                     {c.category} · {c.date}
                   </p>
                 </div>
-                <Link href="/track" className="btn-outline min-h-[48px] px-4 py-2 text-sm">
+                <Link
+                  href={`/track?id=${encodeURIComponent(c.trackingId)}`}
+                  className="btn-outline min-h-[48px] px-4 py-2 text-sm"
+                >
                   {t("common.viewDetails")}
                 </Link>
                 {c.caseId && (

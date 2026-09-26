@@ -1,7 +1,15 @@
 "use client";
 
-import { useCallback, useSyncExternalStore, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
 import { trackGrievance, type GrievanceTrackResponse } from "@/lib/api";
 import {
@@ -19,6 +27,7 @@ import {
 } from "@/components/icons";
 
 const STAGE_KEYS = ["tr.stage1", "tr.stage2", "tr.stage3", "tr.stage4"] as const;
+const TRACKING_RE = /^SS-\d{4}-\d{6}$/;
 
 function stageIndex(status: string): number {
   switch (status) {
@@ -43,8 +52,10 @@ function statusLabel(status: string): string {
   return `tr.status.${status}`;
 }
 
-export default function TrackPage() {
+function TrackInner() {
   const { t } = useI18n();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [trackingId, setTrackingId] = useState("");
   const saved = useSyncExternalStore(
     subscribeSavedCases,
@@ -54,16 +65,25 @@ export default function TrackPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<GrievanceTrackResponse | null>(null);
   const [error, setError] = useState("");
+  // Id already requested for the current URL, so arriving at the same
+  // ?id= again (router change, effect re-run) never double-fetches.
+  const lastRef = useRef("");
 
-  const lookup = useCallback(
-    async (id?: string) => {
-      const tid = (id ?? trackingId).trim().toUpperCase();
+  const lookupId = useCallback(
+    async (raw: string) => {
+      const tid = raw.trim().toUpperCase();
       if (!tid) return;
-      if (!/^SS-\d{4}-\d{6}$/.test(tid)) {
+      if (!TRACKING_RE.test(tid)) {
         setError(t("tr.invalid"));
         setResult(null);
         return;
       }
+      lastRef.current = tid;
+      // The id lives in the URL, so the result is shareable and survives a
+      // reload; the replace happens before the fetch so even a failed
+      // lookup keeps the address bar in sync with what is on screen.
+      router.replace(`/track?id=${tid}`, { scroll: false });
+      setTrackingId(tid);
       setLoading(true);
       setError("");
       setResult(null);
@@ -76,8 +96,26 @@ export default function TrackPage() {
         setLoading(false);
       }
     },
-    [t, trackingId]
+    [t, router]
   );
+
+  // URL-driven tracking: /track?id=SS-... looks itself up on arrival, so any
+  // page can deep-link a result. setState runs inside microtasks only —
+  // never synchronously in the effect body (react-hooks/set-state-in-effect).
+  const urlId = (searchParams.get("id") || "").trim().toUpperCase();
+  useEffect(() => {
+    if (!urlId || lastRef.current === urlId) return;
+    lastRef.current = urlId;
+    if (!TRACKING_RE.test(urlId)) {
+      Promise.resolve().then(() => {
+        setTrackingId(urlId);
+        setError(t("tr.invalid"));
+        setResult(null);
+      });
+      return;
+    }
+    Promise.resolve().then(() => lookupId(urlId));
+  }, [urlId, lookupId, t]);
 
   const printTimeline = () => {
     if (!result) return;
@@ -120,7 +158,7 @@ export default function TrackPage() {
           className="flex flex-col gap-3 sm:flex-row"
           onSubmit={(e) => {
             e.preventDefault();
-            lookup();
+            lookupId(trackingId);
           }}
         >
           <input
@@ -266,7 +304,7 @@ export default function TrackPage() {
                 </Link>
               ) : (
                 <button
-                  onClick={() => lookup(c.trackingId)}
+                  onClick={() => lookupId(c.trackingId)}
                   className="btn-outline min-h-[48px] px-4 py-2 text-base"
                 >
                   {t("tr.check")}
@@ -277,5 +315,13 @@ export default function TrackPage() {
         </ul>
       )}
     </div>
+  );
+}
+
+export default function TrackPage() {
+  return (
+    <Suspense fallback={null}>
+      <TrackInner />
+    </Suspense>
   );
 }
