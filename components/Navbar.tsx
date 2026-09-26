@@ -40,6 +40,18 @@ export function Navbar() {
     return () => document.removeEventListener("keydown", onKey);
   }, [menuOpen]);
 
+  // Lock page scroll while the drawer is open: scrolling inside the sidebar
+  // (or over the backdrop) must not move the page behind it. The cleanup
+  // restores whatever overflow the body had before.
+  useEffect(() => {
+    if (!menuOpen || chatCompactBar) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [menuOpen, chatCompactBar]);
+
   return (
     <>
       <header
@@ -124,7 +136,7 @@ export function Navbar() {
                 <IconClose />
               </button>
             </div>
-            <nav className="flex flex-col gap-1 overflow-y-auto p-3">
+            <nav className="flex flex-col gap-1 overflow-y-auto overscroll-contain p-3">
               {LINKS.map((l) => (
                 <Link
                   key={l.href}
