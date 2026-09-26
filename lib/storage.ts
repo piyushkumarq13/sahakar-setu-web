@@ -202,6 +202,14 @@ export function saveCase(entry: SavedCase) {
   notify();
 }
 
+/** Drops one saved case (my-cases page). `write` stores "[]" for the last one. */
+export function removeSavedCase(trackingId: string) {
+  const list = getSavedCases().filter((c) => c.trackingId !== trackingId);
+  write(CASES_KEY, JSON.stringify(list));
+  savedCasesCache = list.length > 0 ? list : EMPTY_SAVED_CASES;
+  notify();
+}
+
 export function clearAllData() {
   try {
     [SESSION_KEY, CASE_KEY, CASES_KEY, LESSON_PROGRESS_KEY].forEach((k) =>

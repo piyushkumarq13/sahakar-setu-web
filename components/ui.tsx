@@ -77,6 +77,7 @@ export function StatusChip({
     resolved: "chip-success",
     rejected: "chip-red",
     open: "chip-orange",
+    pending: "chip-blue",
     closed: "chip-gray",
     current: "chip-orange",
     completed: "chip-success",

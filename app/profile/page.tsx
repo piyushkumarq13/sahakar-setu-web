@@ -10,7 +10,7 @@ import {
   subscribeSavedCases,
 } from "@/lib/storage";
 import { useToast } from "@/components/Toast";
-import { IconCheck, IconGlobe, IconUser } from "@/components/icons";
+import { IconArrowRight, IconCheck, IconGlobe, IconUser } from "@/components/icons";
 
 export default function ProfilePage() {
   const { t, lang, setLang } = useI18n();
@@ -58,7 +58,16 @@ export default function ProfilePage() {
       </section>
 
       <section className="card mt-5">
-        <h2 className="mb-3 text-lg font-extrabold text-ink">{t("pr.myCases")}</h2>
+        <h2 className="mb-3 flex flex-wrap items-center justify-between gap-2 text-lg font-extrabold text-ink">
+          {t("pr.myCases")}
+          <Link
+            href="/my-cases"
+            className="flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 text-sm font-bold text-primary hover:bg-primary/10"
+          >
+            {t("mc.viewAll")}
+            <IconArrowRight className="text-base" aria-hidden="true" />
+          </Link>
+        </h2>
         {cases.length === 0 ? (
           <p className="text-base font-bold text-ink/60">{t("pr.noCases")}</p>
         ) : (

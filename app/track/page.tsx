@@ -12,6 +12,7 @@ import {
 import { LoadingBlock, StatusChip } from "@/components/ui";
 import { escapeHtml } from "@/lib/print";
 import {
+  IconArrowRight,
   IconCheck,
   IconDoc,
   IconPrint,
@@ -231,7 +232,16 @@ export default function TrackPage() {
       </div>
 
       {/* My cases */}
-      <h2 className="section-title mt-8">{t("tr.myCases")}</h2>
+      <h2 className="section-title mt-8 flex flex-wrap items-center justify-between gap-2">
+        {t("tr.myCases")}
+        <Link
+          href="/my-cases"
+          className="flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-sm font-bold text-primary hover:bg-primary/10"
+        >
+          {t("mc.viewAll")}
+          <IconArrowRight className="text-base" aria-hidden="true" />
+        </Link>
+      </h2>
       {saved.length === 0 ? (
         <div className="card mt-3 flex flex-col items-center gap-3 py-8 text-center">
           <IconDoc className="text-5xl text-primary/40" aria-hidden="true" />
