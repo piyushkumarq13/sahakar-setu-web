@@ -46,6 +46,7 @@ import {
   type ChatMessage,
 } from "@/components/chat/ChatParts";
 import { CasePanel } from "@/components/chat/CasePanel";
+import { LanguageToggle } from "@/components/LanguageToggle";
 import {
   IconChat,
   IconMic,
@@ -336,158 +337,192 @@ function ChatInner() {
   const busy = status !== "idle";
 
   return (
-    <div className="container-page">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="section-title">{t("chat.title")}</h1>
-          <p className="text-base font-bold text-ink/60">{t("chat.subtitle")}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="chip-green">
-            {t("chat.languageSession")}: {langName}
-          </span>
-          <button
-            onClick={() => setMessages([])}
-            className="btn-ghost min-h-[48px] px-4 py-2 text-base"
-          >
-            <IconRefresh className="text-lg" aria-hidden="true" />
-            {t("chat.newChat")}
-          </button>
-        </div>
-      </div>
-
-      <div className="grid items-start gap-4 lg:grid-cols-[3fr_2fr]">
-        {/* Conversation pane */}
-        <section className="card flex min-h-[60vh] flex-col gap-3 p-4 lg:min-h-[560px]">
-          <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain lg:max-h-[calc(100dvh-320px)]">
-            {messages.length === 0 && !busy && (
-              <div className="flex h-full flex-col items-center justify-center gap-4 py-10 text-center">
-                <IconMic className="text-5xl text-primary/40" aria-hidden="true" />
-                <p className="max-w-sm text-base font-bold text-ink/60">
-                  {t("chat.subtitle")}
-                </p>
-                <div className="flex w-full max-w-md flex-col gap-2">
-                  {[
-                    t("landing.popular1"),
-                    t("landing.popular2"),
-                    t("landing.popular3"),
-                    t("landing.popular4"),
-                  ].map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => sendText(q)}
-                      className="chip min-h-[48px] w-full cursor-pointer justify-start border-2 border-primary/25 bg-cream px-4 py-2.5 text-start text-base font-bold text-primary transition-colors hover:bg-primary/10"
-                    >
-                      <IconChat className="shrink-0 text-lg" aria-hidden="true" />
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {messages.map((m) =>
-              m.role === "user" ? (
-                <UserBubble key={m.id} msg={m} />
-              ) : m.role === "note" ? (
-                <NoteBubble key={m.id} text={m.text} />
-              ) : (
-                <AnswerBubble
-                  key={m.id}
-                  msg={m}
-                  lang={lang}
-                  onAskMore={() => {
-                    setInput(t("landing.popular1"));
-                  }}
-                  onTopicClick={(topic) => sendText(topic)}
-                />
-              )
-            )}
-
-            {busy && (
-              <div className="flex justify-start">
-                <div className="w-3/4 rounded-2xl rounded-bl-md border border-ink/10 bg-white px-4 py-3 shadow-sm">
-                  {status === "retrieving" ? (
-                    <p className="mb-2 text-base font-bold text-primary">
-                      {t("chat.retrieving")}
-                    </p>
-                  ) : partial ? (
-                    <p className="whitespace-pre-wrap break-words text-base font-medium text-ink">
-                      {partial}
-                      <span className="animate-pulse text-primary">▌</span>
-                    </p>
-                  ) : (
-                    <p className="mb-2 text-base font-bold text-primary">
-                      {t("chat.thinking")}
-                    </p>
-                  )}
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="mt-2 h-4 w-2/3" />
-                </div>
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-
-          {cooldownLeft > 0 && (
-            <p className="rounded-xl bg-accent/15 px-4 py-2.5 text-center text-base font-bold text-accent-600">
-              {t("common.retryIn", { s: cooldownLeft })}
-            </p>
-          )}
-
-          {/* Input bar */}
-          <form
-            className="flex items-center gap-2 border-t border-ink/10 pt-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendText(input);
-            }}
-          >
+    <>
+      {/* Phones/tablets only (lg:hidden): replaces the global navbar, which is
+          hidden below lg on this route (see Navbar.tsx). Desktop keeps the
+          navbar + the original header row inside container-page below. */}
+      <header className="sticky top-0 z-40 border-b border-ink/10 bg-white lg:hidden">
+        <div className="page-row flex min-h-16 items-center justify-between gap-2 py-2">
+          <h1 className="min-w-0 truncate text-lg font-extrabold text-ink sm:text-xl">
+            {t("chat.title")}
+          </h1>
+          <div className="flex shrink-0 items-center gap-2">
+            <LanguageToggle />
             <button
               type="button"
-              onClick={toggleVoice}
-              disabled={busy}
-              className={`flex h-[52px] w-[52px] shrink-0 cursor-pointer items-center justify-center rounded-xl text-xl text-white transition-colors disabled:opacity-50 ${
-                recording
-                  ? "animate-pulse bg-red-600 hover:bg-red-700"
-                  : "bg-primary hover:bg-primary-600"
-              }`}
-              aria-label={recording ? t("chat.stop") : t("chat.micHint")}
+              onClick={() => setMessages([])}
+              className="btn-ghost min-h-[48px] px-3 py-2 text-sm sm:px-4 sm:text-base"
             >
-              {recording ? <IconStop /> : <IconMic />}
+              <IconRefresh className="text-lg" aria-hidden="true" />
+              {t("chat.newChat")}
             </button>
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={t("chat.placeholder")}
-              className="input min-h-[52px] min-w-0 flex-1"
-              disabled={busy}
-              aria-label={t("chat.placeholder")}
-            />
-            <button
-              type="submit"
-              disabled={busy || !input.trim()}
-              className="btn-primary min-h-[52px] min-w-[52px] px-4"
-              aria-label={t("common.send")}
-            >
-              <IconSend className="text-xl" aria-hidden="true" />
-              <span className="hidden sm:inline">{t("common.send")}</span>
-            </button>
-          </form>
-          {recording && (
-            <p className="text-center text-base font-bold text-red-600">
-              ● {t("chat.recording")}
-            </p>
-          )}
-        </section>
+          </div>
+        </div>
+      </header>
 
-        {/* Side panel */}
-        <aside className="space-y-4 lg:sticky lg:top-20">
-          <CasePanel caseId={caseId} refreshKey={caseRefresh} />
-          <SourcesPanel citations={citations} />
-        </aside>
+      <div className="container-page">
+        {/* Desktop-only original header row (hidden on small screens, which get
+            the compact sticky bar above). */}
+        <div className="mb-4 hidden flex-wrap items-center justify-between gap-3 lg:flex">
+          <div>
+            <h1 className="section-title">{t("chat.title")}</h1>
+            <p className="text-base font-bold text-ink/60">{t("chat.subtitle")}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="chip-green">
+              {t("chat.languageSession")}: {langName}
+            </span>
+            <button
+              type="button"
+              onClick={() => setMessages([])}
+              className="btn-ghost min-h-[48px] px-4 py-2 text-base"
+            >
+              <IconRefresh className="text-lg" aria-hidden="true" />
+              {t("chat.newChat")}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid items-start gap-4 lg:grid-cols-[3fr_2fr]">
+          {/* Conversation pane — fixed height at every breakpoint so the page
+              size never grows with chat length; long chats scroll INSIDE the
+              messages pane, and the input row stays pinned at the card bottom
+              (the pane's flex-1 + min-h-0 absorbs all remaining space). */}
+          <section className="card flex h-[calc(100dvh-300px)] min-h-[420px] max-h-[720px] flex-col gap-3 p-4 lg:h-[calc(100dvh-250px)] lg:min-h-[500px] lg:max-h-[760px]">
+            {/* Mobile: no overscroll-contain — swipes that can't scroll the pane
+                must chain to the page or the whole page freezes (card is now
+                height-bounded at all sizes, so the pane scrolls internally).
+                Desktop keeps contain: pane-only scrolling below lg. */}
+            <div className="flex-1 min-h-0 space-y-4 overflow-y-auto lg:overscroll-contain">
+              {messages.length === 0 && !busy && (
+                <div className="flex h-full flex-col items-center justify-center gap-4 py-10 text-center">
+                  <IconMic className="text-5xl text-primary/40" aria-hidden="true" />
+                  <p className="max-w-sm text-base font-bold text-ink/60">
+                    {t("chat.subtitle")}
+                  </p>
+                  <div className="flex w-full max-w-md flex-col gap-2">
+                    {[
+                      t("landing.popular1"),
+                      t("landing.popular2"),
+                      t("landing.popular3"),
+                      t("landing.popular4"),
+                    ].map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => sendText(q)}
+                        className="chip min-h-[48px] w-full cursor-pointer justify-start border-2 border-primary/25 bg-cream px-4 py-2.5 text-start text-base font-bold text-primary transition-colors hover:bg-primary/10"
+                      >
+                        <IconChat className="shrink-0 text-lg" aria-hidden="true" />
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {messages.map((m) =>
+                m.role === "user" ? (
+                  <UserBubble key={m.id} msg={m} />
+                ) : m.role === "note" ? (
+                  <NoteBubble key={m.id} text={m.text} />
+                ) : (
+                  <AnswerBubble
+                    key={m.id}
+                    msg={m}
+                    lang={lang}
+                    onAskMore={() => {
+                      setInput(t("landing.popular1"));
+                    }}
+                    onTopicClick={(topic) => sendText(topic)}
+                  />
+                )
+              )}
+
+              {busy && (
+                <div className="flex justify-start">
+                  <div className="w-3/4 rounded-2xl rounded-bl-md border border-ink/10 bg-white px-4 py-3 shadow-sm">
+                    {status === "retrieving" ? (
+                      <p className="mb-2 text-base font-bold text-primary">
+                        {t("chat.retrieving")}
+                      </p>
+                    ) : partial ? (
+                      <p className="whitespace-pre-wrap break-words text-base font-medium text-ink">
+                        {partial}
+                        <span className="animate-pulse text-primary">▌</span>
+                      </p>
+                    ) : (
+                      <p className="mb-2 text-base font-bold text-primary">
+                        {t("chat.thinking")}
+                      </p>
+                    )}
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="mt-2 h-4 w-2/3" />
+                  </div>
+                </div>
+              )}
+              <div ref={bottomRef} />
+            </div>
+
+            {cooldownLeft > 0 && (
+              <p className="rounded-xl bg-accent/15 px-4 py-2.5 text-center text-base font-bold text-accent-600">
+                {t("common.retryIn", { s: cooldownLeft })}
+              </p>
+            )}
+
+            {/* Input bar */}
+            <form
+              className="flex items-center gap-2 border-t border-ink/10 pt-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendText(input);
+              }}
+            >
+              <button
+                type="button"
+                onClick={toggleVoice}
+                disabled={busy}
+                className={`flex h-[52px] w-[52px] shrink-0 cursor-pointer items-center justify-center rounded-xl text-xl text-white transition-colors disabled:opacity-50 ${
+                  recording
+                    ? "animate-pulse bg-red-600 hover:bg-red-700"
+                    : "bg-primary hover:bg-primary-600"
+                }`}
+                aria-label={recording ? t("chat.stop") : t("chat.micHint")}
+              >
+                {recording ? <IconStop /> : <IconMic />}
+              </button>
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={t("chat.placeholder")}
+                className="input min-h-[52px] min-w-0 flex-1"
+                disabled={busy}
+                aria-label={t("chat.placeholder")}
+              />
+              <button
+                type="submit"
+                disabled={busy || !input.trim()}
+                className="btn-primary min-h-[52px] min-w-[52px] px-4"
+                aria-label={t("common.send")}
+              >
+                <IconSend className="text-xl" aria-hidden="true" />
+                <span className="hidden sm:inline">{t("common.send")}</span>
+              </button>
+            </form>
+            {recording && (
+              <p className="text-center text-base font-bold text-red-600">
+                ● {t("chat.recording")}
+              </p>
+            )}
+          </section>
+
+          {/* Side panel */}
+          <aside className="space-y-4 lg:sticky lg:top-20">
+            <CasePanel caseId={caseId} refreshKey={caseRefresh} />
+            <SourcesPanel citations={citations} />
+          </aside>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

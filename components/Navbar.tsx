@@ -21,11 +21,19 @@ export function Navbar() {
   const { t } = useI18n();
   const pathname = usePathname();
 
+  // On /chat, phones & tablets swap this navbar for the page's own compact
+  // top bar (title + language picker + new chat). Desktops keep this navbar.
+  const chatCompactBar = pathname === "/chat";
+
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-ink/10 bg-white">
+    <header
+      className={`sticky top-0 z-40 border-b border-ink/10 bg-white ${
+        chatCompactBar ? "max-lg:hidden" : ""
+      }`}
+    >
       <div className="page-row flex h-16 items-center justify-between gap-3">
         <Link href="/" className="flex min-h-[48px] shrink-0 items-center">
           <Image
