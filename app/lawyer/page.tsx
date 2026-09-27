@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -110,6 +111,9 @@ const SORTS = {
 } as const;
 
 type SortKey = keyof typeof SORTS;
+
+/** Lawyers per page — the current page lives in the URL fragment (#1, #2…). */
+const PAGE_SIZE = 6;
 
 function asTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -263,6 +267,10 @@ function LawyerInner() {
   const [city, setCity] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>("rating");
+  // Current slice of results. Kept in the URL fragment (#1, #2, …) so a
+  // refresh, a shared link and the Back button all land on the same page.
+  const [page, setPage] = useState(1);
+  const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -305,6 +313,46 @@ function LawyerInner() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // First read of #N happens in a microtask (never setState synchronously in
+  // the effect body); the listener then follows Back/Forward fragment changes.
+  useEffect(() => {
+    const readHash = () => {
+      const n = Number.parseInt(window.location.hash.slice(1), 10);
+      setPage(Number.isFinite(n) && n > 0 ? n : 1);
+    };
+    Promise.resolve().then(readHash);
+    window.addEventListener("hashchange", readHash);
+    return () => window.removeEventListener("hashchange", readHash);
+  }, []);
+
+  // Any change to the result set restarts at page 1 and drops the fragment,
+  // so refreshing after filtering keeps the first page in the URL.
+  const resetPage = useCallback(() => {
+    setPage((p) => (p === 1 ? p : 1));
+    if (window.location.hash) {
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + window.location.search
+      );
+    }
+  }, []);
+
+  const goToPage = useCallback((n: number) => {
+    setPage(n);
+    const target = n <= 1 ? "" : `#${n}`;
+    // pushState (not a plain link) so nothing scrolls for a fragment that has
+    // no matching element; Back/Forward still replay via "hashchange" above.
+    if (window.location.hash !== target) {
+      window.history.pushState(
+        null,
+        "",
+        window.location.pathname + window.location.search + target
+      );
+    }
+    listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
   // Signs the handoff token server-side, then performs a full-page redirect
@@ -453,8 +501,18 @@ function LawyerInner() {
     return [...list].sort(SORTS[sort]);
   }, [connected, query, specialty, city, verifiedOnly, sort]);
 
+  // Clamped so a stale fragment (#5 after filters shrank the list) still
+  // renders the last real page instead of an empty one.
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageItems = useMemo(
+    () => visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [visible, safePage]
+  );
+
   const hasFilters = Boolean(query.trim() || specialty || city || verifiedOnly);
   const clearFilters = () => {
+    resetPage();
     setQuery("");
     setSpecialty("");
     setCity("");
@@ -541,7 +599,10 @@ function LawyerInner() {
             placeholder={t("mw.searchPh")}
             aria-label={t("mw.searchPh")}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              resetPage();
+              setQuery(e.target.value);
+            }}
           />
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -556,7 +617,10 @@ function LawyerInner() {
               id="mw-specialty"
               className="input min-h-[48px] py-2 text-base"
               value={specialty}
-              onChange={(e) => setSpecialty(e.target.value)}
+              onChange={(e) => {
+                resetPage();
+                setSpecialty(e.target.value);
+              }}
             >
               <option value="">{t("mw.filterAll")}</option>
               {specialtyOptions.map((s) => (
@@ -574,7 +638,10 @@ function LawyerInner() {
               id="mw-city"
               className="input min-h-[48px] py-2 text-base"
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e) => {
+                resetPage();
+                setCity(e.target.value);
+              }}
             >
               <option value="">{t("mw.filterAll")}</option>
               {cityOptions.map((c) => (
@@ -592,7 +659,10 @@ function LawyerInner() {
               id="mw-sort"
               className="input min-h-[48px] py-2 text-base"
               value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
+              onChange={(e) => {
+                resetPage();
+                setSort(e.target.value as SortKey);
+              }}
             >
               <option value="rating">{t("mw.sortRating")}</option>
               <option value="experience">{t("mw.sortExperience")}</option>
@@ -608,7 +678,10 @@ function LawyerInner() {
               type="button"
               aria-labelledby="mw-verified-label"
               aria-pressed={verifiedOnly}
-              onClick={() => setVerifiedOnly((v) => !v)}
+              onClick={() => {
+                resetPage();
+                setVerifiedOnly((v) => !v);
+              }}
               className={`w-full min-h-[48px] px-4 text-base ${
                 verifiedOnly
                   ? "btn-primary"
@@ -692,17 +765,57 @@ function LawyerInner() {
       )}
 
       {!loading && !loadFailed && visible.length > 0 && (
-        <ul className="space-y-4">
-          {visible.map((item, i) => (
-            <LawyerCard
-              key={item.lawyer?.id ?? i}
-              item={item}
-              busy={busy}
-              canConnect={Boolean(caseId)}
-              onConnect={startHandoff}
-            />
-          ))}
-        </ul>
+        <>
+          <ul ref={listRef} className="space-y-4">
+            {pageItems.map((item, i) => (
+              <LawyerCard
+                key={item.lawyer?.id ?? i}
+                item={item}
+                busy={busy}
+                canConnect={Boolean(caseId)}
+                onConnect={startHandoff}
+              />
+            ))}
+          </ul>
+
+          {pageCount > 1 && (
+            <nav
+              className="mt-6 flex flex-wrap items-center justify-center gap-2"
+              aria-label={t("mw.pageNav")}
+            >
+              <button
+                type="button"
+                onClick={() => goToPage(safePage - 1)}
+                disabled={safePage <= 1}
+                className="btn-ghost min-h-[44px] px-4 py-2 text-sm disabled:opacity-40"
+              >
+                ‹ {t("mw.pagePrev")}
+              </button>
+              {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => goToPage(n)}
+                  aria-current={n === safePage ? "page" : undefined}
+                  aria-label={t("mw.pageGo", { n })}
+                  className={`min-h-[44px] min-w-[44px] px-4 py-2 text-base ${
+                    n === safePage ? "btn-primary" : "btn-ghost"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => goToPage(safePage + 1)}
+                disabled={safePage >= pageCount}
+                className="btn-ghost min-h-[44px] px-4 py-2 text-sm disabled:opacity-40"
+              >
+                {t("mw.pageNext")} ›
+              </button>
+            </nav>
+          )}
+        </>
       )}
     </div>
   );

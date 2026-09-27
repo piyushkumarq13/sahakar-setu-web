@@ -367,6 +367,10 @@ const hi: Dict = {
   "mw.noMatch": "इस खोज या फ़िल्टर से कोई वकील नहीं मिला",
   "mw.handoffError": "Mera Wakeel AI पर जाना संभव नहीं हुआ — कृपया बाद में कोशिश करें",
   "mw.handoffConfigError": "जुड़ने की सुविधा अभी तैयार नहीं है — कृपया बाद में कोशिश करें",
+  "mw.pageNav": "पृष्ठ",
+  "mw.pagePrev": "पिछला",
+  "mw.pageNext": "अगला",
+  "mw.pageGo": "पृष्ठ {n} पर जाएँ",
 
   "hp.title": "सहायता और संपर्क",
   "hp.faqTitle": "अपने पूछे जाने वाले प्रश्न",
@@ -845,6 +849,10 @@ const en: Dict = {
   "mw.noMatch": "No advocate matches this search or filter",
   "mw.handoffError": "Could not open Mera Wakeel AI — please try again later",
   "mw.handoffConfigError": "The connect feature is not ready yet — please try again later",
+  "mw.pageNav": "Pages",
+  "mw.pagePrev": "Previous",
+  "mw.pageNext": "Next",
+  "mw.pageGo": "Go to page {n}",
 
   "hp.title": "Help and contact",
   "hp.faqTitle": "Frequently asked questions",

@@ -45,7 +45,10 @@ export function AnswerBubble({
 
   return (
     <div className="flex justify-start">
-      <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-ink/10 bg-white px-4 py-3 shadow-sm md:max-w-[85%]">
+      {/* min-w-0: without it a wide child (table, formula) raises the flex
+          item's automatic minimum above max-w-[92%] and the content bursts
+          out of the bubble; overflow fixes below keep everything inside. */}
+      <div className="min-w-0 max-w-[92%] rounded-2xl rounded-bl-md border border-ink/10 bg-white px-4 py-3 shadow-sm md:max-w-[85%]">
         <MarkdownText text={msg.text} />
 
         {boundary && (

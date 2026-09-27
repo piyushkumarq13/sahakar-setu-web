@@ -84,7 +84,11 @@ function ChatInner({ chatId }: { chatId: string }) {
 
   const recorderRef = useRef<MicRecorder | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  // The messages pane (not the page) is what auto-follows new output.
+  const paneRef = useRef<HTMLDivElement>(null);
+  // True while the reader sits near the bottom of the pane; reading older
+  // messages flips it off so streaming never yanks them away.
+  const atBottomRef = useRef(true);
   const lastFailedRef = useRef<string>("");
   const busyRef = useRef(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -110,6 +114,8 @@ function ChatInner({ chatId }: { chatId: string }) {
     // conversation into the new chat's storage slot.
     Promise.resolve().then(() => {
       busyRef.current = false;
+      // A freshly opened conversation starts pinned to its latest message.
+      atBottomRef.current = true;
       setMessages(getSavedChatMessages(chatId));
       messagesOwnerRef.current = chatId;
       setCitations([]);
@@ -151,8 +157,23 @@ function ChatInner({ chatId }: { chatId: string }) {
     };
   }, []);
 
+  const handlePaneScroll = useCallback(() => {
+    const el = paneRef.current;
+    if (!el) return;
+    atBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  }, []);
+
+  // Follow new output only while the reader is already near the bottom; a
+  // reader scrolling through earlier messages is never yanked down. The pane
+  // itself is scrolled (never scrollIntoView, which walks up every scrollable
+  // ancestor and was dragging the whole page along on each turn). The jump is
+  // instant on purpose: a smooth animation would still be running when the
+  // next streaming chunk lands, making the follow flip off mid-animation.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const el = paneRef.current;
+    if (!el || !atBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
   }, [messages, partial, status]);
 
   // The composer grows with the draft up to a cap, then scrolls internally.
@@ -236,6 +257,8 @@ function ChatInner({ chatId }: { chatId: string }) {
       if (!trimmed || busyRef.current || isRateLimited()) return;
       busyRef.current = true;
       setInput("");
+      // Sending means "take me to my new message", even from far up the pane.
+      atBottomRef.current = true;
       setMessages((prev) => [...prev, newMessage("user", trimmed)]);
       setStatus("retrieving");
       setPartial("");
@@ -302,6 +325,7 @@ function ChatInner({ chatId }: { chatId: string }) {
         return;
       }
       setStatus("answering");
+      atBottomRef.current = true;
       toast(t("common.waitCold"));
       try {
         const res = await voiceApi(
@@ -447,11 +471,14 @@ function ChatInner({ chatId }: { chatId: string }) {
               messages pane, and the input row stays pinned at the card bottom
               (the pane's flex-1 + min-h-0 absorbs all remaining space). */}
           <section className="card flex h-[calc(100dvh-300px)] min-h-[420px] max-h-[720px] flex-col gap-3 p-4 lg:h-[calc(100dvh-250px)] lg:min-h-[500px] lg:max-h-[760px]">
-            {/* Mobile: no overscroll-contain — swipes that can't scroll the pane
-                must chain to the page or the whole page freezes (card is now
-                height-bounded at all sizes, so the pane scrolls internally).
-                Desktop keeps contain: pane-only scrolling below lg. */}
-            <div className="flex-1 min-h-0 space-y-4 overflow-y-auto lg:overscroll-contain">
+            {/* Scroll chaining is ON at every size: once the pane reaches its
+                top/bottom the wheel or touch continues onto the page, so the
+                document never feels frozen while the cursor is over the chat. */}
+            <div
+              ref={paneRef}
+              onScroll={handlePaneScroll}
+              className="flex-1 min-h-0 space-y-4 overflow-y-auto"
+            >
               {messages.length === 0 && !busy && (
                 <div className="flex h-full flex-col items-center justify-center gap-4 py-10 text-center">
                   <IconMic className="text-5xl text-primary/40" aria-hidden="true" />
@@ -518,7 +545,6 @@ function ChatInner({ chatId }: { chatId: string }) {
                   </div>
                 </div>
               )}
-              <div ref={bottomRef} />
             </div>
 
             {cooldownLeft > 0 && (

@@ -117,6 +117,10 @@ body {
      here at a size that matches the surrounding chat typography. */
   .markdown-body {
     @apply text-base leading-relaxed text-ink;
+    /* `anywhere` (not `break-word`) also shrinks min-content width, so a long
+       unbroken token — URL, formula, code — wraps inside the bubble instead
+       of pushing it wider than the chat pane. */
+    overflow-wrap: anywhere;
   }
   .markdown-body > :first-child {
     @apply mt-0;
@@ -166,6 +170,16 @@ body {
   }
   .markdown-body code {
     @apply rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[0.85em] font-bold text-ink;
+  }
+  /* Inline code (formulas, long identifiers) stays on one line and scrolls
+     sideways inside the bubble instead of wrapping mid-expression or
+     widening it. Code inside <pre> is excluded — the block scrolls already. */
+  .markdown-body :not(pre) > code {
+    display: inline-block;
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    vertical-align: bottom;
   }
   .markdown-body pre {
     @apply my-2 overflow-x-auto rounded-xl bg-ink p-4 text-sm;
