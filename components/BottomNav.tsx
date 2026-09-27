@@ -8,12 +8,14 @@ import {
   IconChat,
   IconGrid,
   IconHome,
+  IconScale,
   IconUser,
 } from "./icons";
 
 const TABS = [
   { href: "/", key: "nav.home", Icon: IconHome },
   { href: "/chat", key: "nav.chat", Icon: IconChat },
+  { href: "/lawyer", key: "nav.lawyer", Icon: IconScale },
   { href: "/schemes", key: "nav.schemes", Icon: IconGrid },
   { href: "/calculators", key: "nav.calculators", Icon: IconCalculator },
   { href: "/profile", key: "nav.profile", Icon: IconUser },

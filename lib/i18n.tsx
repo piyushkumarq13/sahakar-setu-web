@@ -39,6 +39,7 @@ const hi: Dict = {
 
   "nav.home": "होम",
   "nav.chat": "चैट",
+  "nav.lawyer": "वकील",
   "nav.grievance": "शिकायत",
   "nav.track": "स्थिति",
   "nav.schemes": "योजनाएं",
@@ -130,6 +131,9 @@ const hi: Dict = {
   "chat.newChat": "नई बातचीत",
   "chat.playAnswer": "जवाब सुनें",
   "chat.noCaseYet": "अभी कोई केस नहीं — चैट शुरू करते ही केस बन जाएगा",
+  "chat.recentChats": "हाल की बातचीत",
+  "chat.deleteChat": "बातचीत हटाएं",
+  "chat.untitled": "नई बातचीत",
 
   "gr.title": "शिकायत दर्ज करें",
   "gr.subtitle": "4 आसान चरणों में औपचारिक शिकायत आवेदन",
@@ -511,6 +515,7 @@ const en: Dict = {
 
   "nav.home": "Home",
   "nav.chat": "Chat",
+  "nav.lawyer": "Lawyers",
   "nav.grievance": "Grievance",
   "nav.track": "Track",
   "nav.schemes": "Schemes",
@@ -603,6 +608,9 @@ const en: Dict = {
   "chat.newChat": "New chat",
   "chat.playAnswer": "Play answer",
   "chat.noCaseYet": "No case yet — it will be created when you start chatting",
+  "chat.recentChats": "Recent chats",
+  "chat.deleteChat": "Delete chat",
+  "chat.untitled": "New chat",
 
   "gr.title": "File a grievance",
   "gr.subtitle": "Formal complaint application in 4 easy steps",

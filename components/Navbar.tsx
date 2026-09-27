@@ -11,6 +11,7 @@ import { IconClose, IconMenu } from "./icons";
 const LINKS = [
   { href: "/", key: "nav.home" },
   { href: "/chat", key: "nav.chat" },
+  { href: "/lawyer", key: "nav.lawyer" },
   { href: "/grievance", key: "nav.grievance" },
   { href: "/track", key: "nav.track" },
   { href: "/my-cases", key: "nav.myCases" },
@@ -28,7 +29,8 @@ export function Navbar() {
 
   // On /chat, phones & tablets swap this navbar for the page's own compact
   // top bar (title + language picker + new chat). Desktops keep this navbar.
-  const chatCompactBar = pathname === "/chat";
+  const chatCompactBar =
+    pathname === "/chat" || pathname.startsWith("/chat/");
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
