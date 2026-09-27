@@ -663,7 +663,9 @@ function LawyerInner() {
         </button>
       )}
 
-      {loading && (
+      {/* Closed view has no list area yet, so the indicator sits right under
+          the button; the open view gets its own below the filters. */}
+      {loading && !open && (
         <div className="card mb-6">
           <LoadingBlock lines={4} note={t("common.loading")} />
         </div>
@@ -811,6 +813,14 @@ function LawyerInner() {
               )}
             </div>
           </div>
+
+          {/* Refreshing #list-3 lands here with the list still empty: the
+              indicator fills the exact spot the lawyers are about to appear. */}
+          {loading && (
+            <div className="card">
+              <LoadingBlock lines={4} note={t("mw.loadingList")} />
+            </div>
+          )}
 
           {loadFailed && !loading && (
             <div className="card border-2 border-red-200 text-center">
