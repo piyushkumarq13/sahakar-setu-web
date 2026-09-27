@@ -25,6 +25,7 @@ import { LoadingBlock, Spinner } from "@/components/ui";
 import {
   IconArrowRight,
   IconCheck,
+  IconChevronDown,
   IconScale,
   IconSearch,
   IconUser,
@@ -112,8 +113,26 @@ const SORTS = {
 
 type SortKey = keyof typeof SORTS;
 
-/** Lawyers per page — the current page lives in the URL fragment (#1, #2…). */
+/** Lawyers per page — the current page lives in the URL fragment (#list-2…). */
 const PAGE_SIZE = 6;
+
+// Fragment → view state. "" = recommendations only, "#list" = full list on
+// page 1, "#list-N" = full list on page N. A bare "#N" (older links) also
+// opens the list at that page.
+function parseListHash(hash: string): { open: boolean; page: number } {
+  const raw = hash.startsWith("#") ? hash.slice(1) : hash;
+  if (!raw) return { open: false, page: 1 };
+  if (raw === "list") return { open: true, page: 1 };
+  const match = /^list-(\d+)$/.exec(raw);
+  const n = match ? Number.parseInt(match[1], 10) : Number.parseInt(raw, 10);
+  if (Number.isFinite(n) && n > 0) return { open: true, page: n };
+  return { open: false, page: 1 };
+}
+
+function listHash(open: boolean, page: number): string {
+  if (!open) return "";
+  return page <= 1 ? "#list" : `#list-${page}`;
+}
 
 function asTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -267,9 +286,16 @@ function LawyerInner() {
   const [city, setCity] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>("rating");
-  // Current slice of results. Kept in the URL fragment (#1, #2, …) so a
-  // refresh, a shared link and the Back button all land on the same page.
-  const [page, setPage] = useState(1);
+  // Current view, mirrored in the URL fragment: "" (recommendations only) vs
+  // "#list" / "#list-N" (full list on page N) — so a refresh, a shared link
+  // and the Back button all land on the same view.
+  const [view, setView] = useState<{ open: boolean; page: number }>({
+    open: false,
+    page: 1,
+  });
+  // While the list is open the recommendations fold into a button; this tracks
+  // whether that button has been expanded again.
+  const [recsExpanded, setRecsExpanded] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
@@ -315,36 +341,20 @@ function LawyerInner() {
     };
   }, []);
 
-  // First read of #N happens in a microtask (never setState synchronously in
-  // the effect body); the listener then follows Back/Forward fragment changes.
+  // First read of the fragment happens in a microtask (never setState
+  // synchronously in the effect body); the listener then follows Back/Forward.
   useEffect(() => {
-    const readHash = () => {
-      const n = Number.parseInt(window.location.hash.slice(1), 10);
-      setPage(Number.isFinite(n) && n > 0 ? n : 1);
-    };
+    const readHash = () => setView(parseListHash(window.location.hash));
     Promise.resolve().then(readHash);
     window.addEventListener("hashchange", readHash);
     return () => window.removeEventListener("hashchange", readHash);
   }, []);
 
-  // Any change to the result set restarts at page 1 and drops the fragment,
-  // so refreshing after filtering keeps the first page in the URL.
-  const resetPage = useCallback(() => {
-    setPage((p) => (p === 1 ? p : 1));
-    if (window.location.hash) {
-      window.history.replaceState(
-        null,
-        "",
-        window.location.pathname + window.location.search
-      );
-    }
-  }, []);
-
-  const goToPage = useCallback((n: number) => {
-    setPage(n);
-    const target = n <= 1 ? "" : `#${n}`;
-    // pushState (not a plain link) so nothing scrolls for a fragment that has
-    // no matching element; Back/Forward still replay via "hashchange" above.
+  const navigate = useCallback((open: boolean, page: number) => {
+    setView({ open, page });
+    const target = listHash(open, page);
+    // pushState: nothing scrolls (no element carries these ids) and the new
+    // entry gives Back the previous view; "hashchange" replays it for us.
     if (window.location.hash !== target) {
       window.history.pushState(
         null,
@@ -352,8 +362,40 @@ function LawyerInner() {
         window.location.pathname + window.location.search + target
       );
     }
-    listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
+
+  // Any change to the result set restarts at page 1 (the list stays open or
+  // closed), so refreshing after filtering keeps that first page in the URL.
+  const resetPage = () => {
+    const target = listHash(view.open, 1);
+    if (window.location.hash !== target) {
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + window.location.search + target
+      );
+    }
+    setView((v) => (v.page === 1 ? v : { ...v, page: 1 }));
+  };
+
+  const goToPage = useCallback(
+    (n: number) => {
+      navigate(true, Math.max(1, n));
+      listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    [navigate]
+  );
+
+  // "Show all lawyers" pushes #list (Back closes the list again) and folds the
+  // recommendations into their button; hiding restores the initial view.
+  const showList = () => {
+    setRecsExpanded(false);
+    navigate(true, 1);
+  };
+  const hideList = () => {
+    setRecsExpanded(true);
+    navigate(false, 1);
+  };
 
   // Signs the handoff token server-side, then performs a full-page redirect
   // to Mera Wakeel's login with ?handoff=<token>.
@@ -501,14 +543,20 @@ function LawyerInner() {
     return [...list].sort(SORTS[sort]);
   }, [connected, query, specialty, city, verifiedOnly, sort]);
 
-  // Clamped so a stale fragment (#5 after filters shrank the list) still
+  // Clamped so a stale fragment (#list-5 after filters shrank the list) still
   // renders the last real page instead of an empty one.
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount);
+  // The list is open when the URL says so — or always when there are no
+  // recommendations to show first (nothing to hide behind the button).
+  const open = view.open || (!loading && recommended.length === 0);
+  const safePage = Math.min(view.page, pageCount);
   const pageItems = useMemo(
     () => visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
     [visible, safePage]
   );
+  // "Picked for your case" shows the three best matches only; everyone else
+  // waits in the full list below.
+  const topRecommended = useMemo(() => recommended.slice(0, 3), [recommended]);
 
   const hasFilters = Boolean(query.trim() || specialty || city || verifiedOnly);
   const clearFilters = () => {
@@ -544,276 +592,327 @@ function LawyerInner() {
         </div>
       )}
 
-      {recommended.length > 0 && (
-        <section aria-label={t("mw.recTitle")} className="mb-6">
-          <div className="mb-3 flex items-center gap-2">
-            <IconCheck className="text-xl text-primary" aria-hidden="true" />
-            <div>
-              <h2 className="text-lg font-extrabold text-ink">{t("mw.recTitle")}</h2>
-              <p className="text-sm font-bold text-ink/60">{t("mw.recDesc")}</p>
+      {recommended.length > 0 &&
+        (open && !recsExpanded ? (
+          // List open: the whole recommendation block folds into this button.
+          <button
+            type="button"
+            onClick={() => setRecsExpanded(true)}
+            aria-expanded="false"
+            className="btn-outline mb-4 flex min-h-[56px] w-full items-center gap-3 px-4 py-3 text-start"
+          >
+            <IconCheck className="shrink-0 text-xl text-primary" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-extrabold text-ink">
+                {t("mw.recTitle")}
+              </span>
+              <span className="block truncate text-sm font-bold text-ink/60">
+                {t("mw.recDesc")}
+              </span>
+            </span>
+            <IconChevronDown className="shrink-0 text-xl text-ink/50" aria-hidden="true" />
+          </button>
+        ) : (
+          <section aria-label={t("mw.recTitle")} className="mb-4">
+            <div className="mb-3 flex items-center gap-2">
+              <IconCheck className="shrink-0 text-xl text-primary" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-extrabold text-ink">{t("mw.recTitle")}</h2>
+                <p className="text-sm font-bold text-ink/60">{t("mw.recDesc")}</p>
+              </div>
+              {open && (
+                <button
+                  type="button"
+                  onClick={() => setRecsExpanded(false)}
+                  aria-label={t("mw.recCollapse")}
+                  className="btn-ghost min-h-[44px] shrink-0 px-3"
+                >
+                  <IconChevronDown className="rotate-180 text-xl" aria-hidden="true" />
+                </button>
+              )}
             </div>
-          </div>
-          <ul className="space-y-4">
-            {recommended.map((item, i) => (
-              <LawyerCard
-                key={`rec-${item.lawyer?.id ?? i}`}
-                item={item}
-                busy={busy}
-                canConnect={Boolean(caseId)}
-                recommended
-                onConnect={startHandoff}
-              />
-            ))}
-          </ul>
-        </section>
-      )}
+            <ul className="space-y-4">
+              {topRecommended.map((item, i) => (
+                <LawyerCard
+                  key={`rec-${item.lawyer?.id ?? i}`}
+                  item={item}
+                  busy={busy}
+                  canConnect={Boolean(caseId)}
+                  recommended
+                  onConnect={startHandoff}
+                />
+              ))}
+            </ul>
+          </section>
+        ))}
 
-      <div className="card mb-6 flex-col items-start gap-4 border-2 border-primary/30 sm:flex-row sm:items-center">
-        <div className="flex-1">
-          <h2 className="text-lg font-extrabold text-ink">{t("mw.matchTitle")}</h2>
-          <p className="text-sm font-bold text-ink/60">{t("mw.matchAIDesc")}</p>
-        </div>
+      {/* The full list is opt-in: this button is the door, and its state lives
+          in the URL (#list) so a refresh keeps the list open. */}
+      {recommended.length > 0 && (
         <button
-          onClick={() => startHandoff()}
-          disabled={busy || !caseId}
-          className="btn-accent min-h-[52px] w-full sm:w-auto"
+          type="button"
+          onClick={open ? hideList : showList}
+          aria-expanded={open}
+          className="btn-primary mb-6 flex min-h-[52px] w-full items-center justify-center gap-2 px-5 py-3 text-base"
         >
-          {busy ? (
-            <Spinner className="border-ink/30 border-t-ink" />
-          ) : (
-            <IconArrowRight aria-hidden="true" />
-          )}
-          {t("mw.matchAI")}
-        </button>
-      </div>
-
-      <div className="card mb-5 space-y-3">
-        <div className="relative">
-          <IconSearch
-            className="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-xl text-ink/40"
+          {open ? t("mw.hideList") : t("mw.showAll")}
+          <IconChevronDown
+            className={`text-xl transition-transform ${open ? "rotate-180" : ""}`}
             aria-hidden="true"
           />
-          <input
-            type="search"
-            className="input min-h-[52px] ps-12"
-            placeholder={t("mw.searchPh")}
-            aria-label={t("mw.searchPh")}
-            value={query}
-            onChange={(e) => {
-              resetPage();
-              setQuery(e.target.value);
-            }}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div>
-            <label
-              htmlFor="mw-specialty"
-              className="text-xs font-extrabold uppercase text-ink/50"
-            >
-              {t("mw.filterSpecialty")}
-            </label>
-            <select
-              id="mw-specialty"
-              className="input min-h-[48px] py-2 text-base"
-              value={specialty}
-              onChange={(e) => {
-                resetPage();
-                setSpecialty(e.target.value);
-              }}
-            >
-              <option value="">{t("mw.filterAll")}</option>
-              {specialtyOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="mw-city" className="text-xs font-extrabold uppercase text-ink/50">
-              {t("mw.filterCity")}
-            </label>
-            <select
-              id="mw-city"
-              className="input min-h-[48px] py-2 text-base"
-              value={city}
-              onChange={(e) => {
-                resetPage();
-                setCity(e.target.value);
-              }}
-            >
-              <option value="">{t("mw.filterAll")}</option>
-              {cityOptions.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="mw-sort" className="text-xs font-extrabold uppercase text-ink/50">
-              {t("mc.sort")}
-            </label>
-            <select
-              id="mw-sort"
-              className="input min-h-[48px] py-2 text-base"
-              value={sort}
-              onChange={(e) => {
-                resetPage();
-                setSort(e.target.value as SortKey);
-              }}
-            >
-              <option value="rating">{t("mw.sortRating")}</option>
-              <option value="experience">{t("mw.sortExperience")}</option>
-              <option value="reviews">{t("mw.sortReviews")}</option>
-              <option value="name">{t("mw.sortName")}</option>
-            </select>
-          </div>
-          <div>
-            <span className="text-xs font-extrabold uppercase text-ink/50" id="mw-verified-label">
-              {t("mw.verifiedOnly")}
-            </span>
-            <button
-              type="button"
-              aria-labelledby="mw-verified-label"
-              aria-pressed={verifiedOnly}
-              onClick={() => {
-                resetPage();
-                setVerifiedOnly((v) => !v);
-              }}
-              className={`w-full min-h-[48px] px-4 text-base ${
-                verifiedOnly
-                  ? "btn-primary"
-                  : "btn-ghost"
-              }`}
-            >
-              {verifiedOnly && <IconCheck aria-hidden="true" />}
-              {t("mw.verifiedOnly")}
-            </button>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-bold text-ink/50">
-            {t("mc.results", { shown: visible.length, total: connected.length })}
-          </p>
-          {hasFilters && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="btn-ghost min-h-[44px] px-4 py-2 text-sm"
-            >
-              {t("mc.clear")}
-            </button>
-          )}
-        </div>
-      </div>
+        </button>
+      )}
 
       {loading && (
-        <div className="card">
+        <div className="card mb-6">
           <LoadingBlock lines={4} note={t("common.loading")} />
         </div>
       )}
 
-      {loadFailed && !loading && (
-        <div className="card border-2 border-red-200 text-center">
-          <p className="text-base font-bold text-ink">{t("mw.loadError")}</p>
-          <button
-            onClick={() => {
-              setLoadFailed(false);
-              setLoading(true);
-              (async () => {
-                try {
-                  const res = await fetch("/api/mera-wakeel/lawyers", {
-                    cache: "no-store",
-                  });
-                  const data = (await res.json()) as { lawyers?: unknown };
-                  setLawyers(Array.isArray(data.lawyers) ? (data.lawyers as WakeelLawyer[]) : []);
-                } catch {
-                  setLoadFailed(true);
-                } finally {
-                  setLoading(false);
-                }
-              })();
-            }}
-            className="btn-outline mt-3 min-h-[48px] px-5 py-2 text-base"
-          >
-            {t("common.retry")}
-          </button>
-        </div>
-      )}
-
-      {!loading && !loadFailed && connected.length === 0 && (
-        <div className="card flex flex-col items-center gap-3 py-8 text-center">
-          <IconScale className="text-5xl text-primary/40" aria-hidden="true" />
-          <p className="text-base font-bold text-ink/60">{t("mw.empty")}</p>
-        </div>
-      )}
-
-      {!loading && !loadFailed && connected.length > 0 && visible.length === 0 && (
-        <div className="card flex flex-col items-center gap-3 py-8 text-center">
-          <IconSearch className="text-5xl text-primary/40" aria-hidden="true" />
-          <p className="text-base font-bold text-ink/60">{t("mw.noMatch")}</p>
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="btn-outline min-h-[48px] px-5 py-2 text-base"
-          >
-            {t("mc.clear")}
-          </button>
-        </div>
-      )}
-
-      {!loading && !loadFailed && visible.length > 0 && (
+      {open && (
         <>
-          <ul ref={listRef} className="space-y-4">
-            {pageItems.map((item, i) => (
-              <LawyerCard
-                key={item.lawyer?.id ?? i}
-                item={item}
-                busy={busy}
-                canConnect={Boolean(caseId)}
-                onConnect={startHandoff}
-              />
-            ))}
-          </ul>
-
-          {pageCount > 1 && (
-            <nav
-              className="mt-6 flex flex-wrap items-center justify-center gap-2"
-              aria-label={t("mw.pageNav")}
+          <div className="card mb-6 flex-col items-start gap-4 border-2 border-primary/30 sm:flex-row sm:items-center">
+            <div className="flex-1">
+              <h2 className="text-lg font-extrabold text-ink">{t("mw.matchTitle")}</h2>
+              <p className="text-sm font-bold text-ink/60">{t("mw.matchAIDesc")}</p>
+            </div>
+            <button
+              onClick={() => startHandoff()}
+              disabled={busy || !caseId}
+              className="btn-accent min-h-[52px] w-full sm:w-auto"
             >
-              <button
-                type="button"
-                onClick={() => goToPage(safePage - 1)}
-                disabled={safePage <= 1}
-                className="btn-ghost min-h-[44px] px-4 py-2 text-sm disabled:opacity-40"
-              >
-                ‹ {t("mw.pagePrev")}
-              </button>
-              {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+              {busy ? (
+                <Spinner className="border-ink/30 border-t-ink" />
+              ) : (
+                <IconArrowRight aria-hidden="true" />
+              )}
+              {t("mw.matchAI")}
+            </button>
+          </div>
+
+          <div className="card mb-5 space-y-3">
+            <div className="relative">
+              <IconSearch
+                className="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-xl text-ink/40"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                className="input min-h-[52px] ps-12"
+                placeholder={t("mw.searchPh")}
+                aria-label={t("mw.searchPh")}
+                value={query}
+                onChange={(e) => {
+                  resetPage();
+                  setQuery(e.target.value);
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <label
+                  htmlFor="mw-specialty"
+                  className="text-xs font-extrabold uppercase text-ink/50"
+                >
+                  {t("mw.filterSpecialty")}
+                </label>
+                <select
+                  id="mw-specialty"
+                  className="input min-h-[48px] py-2 text-base"
+                  value={specialty}
+                  onChange={(e) => {
+                    resetPage();
+                    setSpecialty(e.target.value);
+                  }}
+                >
+                  <option value="">{t("mw.filterAll")}</option>
+                  {specialtyOptions.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="mw-city" className="text-xs font-extrabold uppercase text-ink/50">
+                  {t("mw.filterCity")}
+                </label>
+                <select
+                  id="mw-city"
+                  className="input min-h-[48px] py-2 text-base"
+                  value={city}
+                  onChange={(e) => {
+                    resetPage();
+                    setCity(e.target.value);
+                  }}
+                >
+                  <option value="">{t("mw.filterAll")}</option>
+                  {cityOptions.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="mw-sort" className="text-xs font-extrabold uppercase text-ink/50">
+                  {t("mc.sort")}
+                </label>
+                <select
+                  id="mw-sort"
+                  className="input min-h-[48px] py-2 text-base"
+                  value={sort}
+                  onChange={(e) => {
+                    resetPage();
+                    setSort(e.target.value as SortKey);
+                  }}
+                >
+                  <option value="rating">{t("mw.sortRating")}</option>
+                  <option value="experience">{t("mw.sortExperience")}</option>
+                  <option value="reviews">{t("mw.sortReviews")}</option>
+                  <option value="name">{t("mw.sortName")}</option>
+                </select>
+              </div>
+              <div>
+                <span className="text-xs font-extrabold uppercase text-ink/50" id="mw-verified-label">
+                  {t("mw.verifiedOnly")}
+                </span>
                 <button
-                  key={n}
                   type="button"
-                  onClick={() => goToPage(n)}
-                  aria-current={n === safePage ? "page" : undefined}
-                  aria-label={t("mw.pageGo", { n })}
-                  className={`min-h-[44px] min-w-[44px] px-4 py-2 text-base ${
-                    n === safePage ? "btn-primary" : "btn-ghost"
+                  aria-labelledby="mw-verified-label"
+                  aria-pressed={verifiedOnly}
+                  onClick={() => {
+                    resetPage();
+                    setVerifiedOnly((v) => !v);
+                  }}
+                  className={`w-full min-h-[48px] px-4 text-base ${
+                    verifiedOnly
+                      ? "btn-primary"
+                      : "btn-ghost"
                   }`}
                 >
-                  {n}
+                  {verifiedOnly && <IconCheck aria-hidden="true" />}
+                  {t("mw.verifiedOnly")}
                 </button>
-              ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-bold text-ink/50">
+                {t("mc.results", { shown: visible.length, total: connected.length })}
+              </p>
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="btn-ghost min-h-[44px] px-4 py-2 text-sm"
+                >
+                  {t("mc.clear")}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {loadFailed && !loading && (
+            <div className="card border-2 border-red-200 text-center">
+              <p className="text-base font-bold text-ink">{t("mw.loadError")}</p>
+              <button
+                onClick={() => {
+                  setLoadFailed(false);
+                  setLoading(true);
+                  (async () => {
+                    try {
+                      const res = await fetch("/api/mera-wakeel/lawyers", {
+                        cache: "no-store",
+                      });
+                      const data = (await res.json()) as { lawyers?: unknown };
+                      setLawyers(Array.isArray(data.lawyers) ? (data.lawyers as WakeelLawyer[]) : []);
+                    } catch {
+                      setLoadFailed(true);
+                    } finally {
+                      setLoading(false);
+                    }
+                  })();
+                }}
+                className="btn-outline mt-3 min-h-[48px] px-5 py-2 text-base"
+              >
+                {t("common.retry")}
+              </button>
+            </div>
+          )}
+
+          {!loading && !loadFailed && connected.length === 0 && (
+            <div className="card flex flex-col items-center gap-3 py-8 text-center">
+              <IconScale className="text-5xl text-primary/40" aria-hidden="true" />
+              <p className="text-base font-bold text-ink/60">{t("mw.empty")}</p>
+            </div>
+          )}
+
+          {!loading && !loadFailed && connected.length > 0 && visible.length === 0 && (
+            <div className="card flex flex-col items-center gap-3 py-8 text-center">
+              <IconSearch className="text-5xl text-primary/40" aria-hidden="true" />
+              <p className="text-base font-bold text-ink/60">{t("mw.noMatch")}</p>
               <button
                 type="button"
-                onClick={() => goToPage(safePage + 1)}
-                disabled={safePage >= pageCount}
-                className="btn-ghost min-h-[44px] px-4 py-2 text-sm disabled:opacity-40"
+                onClick={clearFilters}
+                className="btn-outline min-h-[48px] px-5 py-2 text-base"
               >
-                {t("mw.pageNext")} ›
+                {t("mc.clear")}
               </button>
-            </nav>
+            </div>
+          )}
+
+          {!loading && !loadFailed && visible.length > 0 && (
+            <>
+              <ul ref={listRef} className="space-y-4">
+                {pageItems.map((item, i) => (
+                  <LawyerCard
+                    key={item.lawyer?.id ?? i}
+                    item={item}
+                    busy={busy}
+                    canConnect={Boolean(caseId)}
+                    onConnect={startHandoff}
+                  />
+                ))}
+              </ul>
+
+              {pageCount > 1 && (
+                <nav
+                  className="mt-6 flex flex-wrap items-center justify-center gap-2"
+                  aria-label={t("mw.pageNav")}
+                >
+                  <button
+                    type="button"
+                    onClick={() => goToPage(safePage - 1)}
+                    disabled={safePage <= 1}
+                    className="btn-ghost min-h-[44px] px-4 py-2 text-sm disabled:opacity-40"
+                  >
+                    ‹ {t("mw.pagePrev")}
+                  </button>
+                  {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => goToPage(n)}
+                      aria-current={n === safePage ? "page" : undefined}
+                      aria-label={t("mw.pageGo", { n })}
+                      className={`min-h-[44px] min-w-[44px] px-4 py-2 text-base ${
+                        n === safePage ? "btn-primary" : "btn-ghost"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => goToPage(safePage + 1)}
+                    disabled={safePage >= pageCount}
+                    className="btn-ghost min-h-[44px] px-4 py-2 text-sm disabled:opacity-40"
+                  >
+                    {t("mw.pageNext")} ›
+                  </button>
+                </nav>
+              )}
+            </>
           )}
         </>
       )}
