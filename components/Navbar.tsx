@@ -19,6 +19,7 @@ const LINKS = [
   { href: "/calculators", key: "nav.calculators" },
   { href: "/lessons", key: "nav.lessons" },
   { href: "/help", key: "nav.help" },
+  { href: "/references", key: "nav.references" },
   { href: "/profile", key: "nav.profile" },
 ];
 
