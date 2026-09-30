@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE = "https://sahakar-setu-server.onrender.com";
+const DEFAULT_API_BASE = "https://sahakar-setu-server-tfnq.onrender.com";
 
 /**
  * API origin. Override with NEXT_PUBLIC_API_BASE (e.g. a local or staging
